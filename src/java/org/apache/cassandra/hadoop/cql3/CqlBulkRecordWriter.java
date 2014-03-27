@@ -129,8 +129,8 @@ class CqlBulkRecordWriter extends AbstractBulkRecordWriter<List<ByteBuffer>, Lis
     {
         prepareWriter();
         try {
-            keyColumns.addAll(values);
-            ((CQLSSTableWriter) writer).rawAddRow(keyColumns);
+            values.addAll(keyColumns);
+            ((CQLSSTableWriter) writer).rawAddRow(values);
         } catch (org.apache.cassandra.exceptions.InvalidRequestException e) {
             throw new IOException("Error adding row", e);
         }

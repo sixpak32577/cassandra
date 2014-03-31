@@ -20,7 +20,9 @@ package org.apache.cassandra.hadoop.cql3;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.hadoop.AbstractBulkRecordWriter;
@@ -46,10 +48,10 @@ import org.apache.hadoop.util.Progressable;
  *
  * @see CqlBulkOutputFormat
  */
-class CqlBulkRecordWriter extends AbstractBulkRecordWriter<List<ByteBuffer>, List<ByteBuffer>>
+public class CqlBulkRecordWriter extends AbstractBulkRecordWriter<List<ByteBuffer>, List<ByteBuffer>>
 {
-    private static final String COLUMNFAMILY_SCHEMA = "mapreduce.output.bulkoutputformat.columnfamily.schema";
-    private static final String COLUMNFAMILY_INSERT_STATEMENT = "mapreduce.output.bulkoutputformat.columnfamily.insert.statement";
+    public static final String COLUMNFAMILY_SCHEMA = "mapreduce.output.bulkoutputformat.columnfamily.schema";
+    public static final String COLUMNFAMILY_INSERT_STATEMENT = "mapreduce.output.bulkoutputformat.columnfamily.insert.statement";
     
     private String keyspace;
     private String columnFamily;
@@ -101,8 +103,9 @@ class CqlBulkRecordWriter extends AbstractBulkRecordWriter<List<ByteBuffer>, Lis
                     ConfigHelper.getOutputInitialAddress(conf),
                     ConfigHelper.getOutputRpcPort(conf),
                     ConfigHelper.getOutputKeyspaceUserName(conf),
-                    ConfigHelper.getOutputKeyspacePassword(conf),
-                    columnFamily, schema);
+                    ConfigHelper.getOutputKeyspacePassword(conf));
+                
+                externalClient.addKnownCfs(keyspace, schema);
 
                 this.loader = new SSTableLoader(outputDir, externalClient, new BulkRecordWriter.NullOutputHandler());
             }
@@ -155,13 +158,25 @@ class CqlBulkRecordWriter extends AbstractBulkRecordWriter<List<ByteBuffer>, Lis
     
     public static class ExternalClient extends BulkRecordWriter.ExternalClient
     {
-        String columnFamily;
-        String cql;
-      
-        public ExternalClient(String hostlist, int port, String username, String password, String columnFamily, String cql)
+        private Map<String, Map<String, CFMetaData>> knownCqlCfs = new HashMap<>();
+        
+        public ExternalClient(String hostlist, int port, String username, String password)
         {
             super(hostlist, port, username, password);
-            this.cql = cql;
+        }
+
+        public void addKnownCfs(String keyspace, String cql)
+        {
+            Map<String, CFMetaData> cfs = knownCqlCfs.get(keyspace);
+            
+            if (cfs == null)
+            {
+                cfs = new HashMap<>();
+                knownCqlCfs.put(keyspace, cfs);
+            }
+            
+            CFMetaData metadata = CFMetaData.compile(cql, keyspace);
+            cfs.put(metadata.cfName, metadata);
         }
         
         @Override
@@ -173,12 +188,8 @@ class CqlBulkRecordWriter extends AbstractBulkRecordWriter<List<ByteBuffer>, Lis
                 return metadata;
             }
             
-            if (columnFamily.equals(cfName))
-            {
-                return CFMetaData.compile(cql, keyspace);
-            }
-            
-            return null;
+            Map<String, CFMetaData> cfs = knownCqlCfs.get(keyspace);
+            return cfs != null ? cfs.get(cfName) : null; 
         }
     }
 }

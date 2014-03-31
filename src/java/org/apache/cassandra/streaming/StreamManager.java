@@ -35,6 +35,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.RateLimiter;
 
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
+import org.apache.cassandra.config.Config;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.streaming.management.StreamEventJMXNotifier;
 import org.apache.cassandra.streaming.management.StreamStateCompositeData;
@@ -77,10 +78,10 @@ public class StreamManager implements StreamManagerMBean
             mayUpdateThroughput(interDCThroughput, interDCLimiter);
 
             if (DatabaseDescriptor.getLocalDataCenter() != null && DatabaseDescriptor.getEndpointSnitch() != null)
-                isLocalDC = DatabaseDescriptor.getLocalDataCenter().equals(
+                isLocalDC = !Config.isClientMode() && DatabaseDescriptor.getLocalDataCenter().equals(
                             DatabaseDescriptor.getEndpointSnitch().getDatacenter(peer));
             else
-                isLocalDC = true;
+                isLocalDC = !Config.isClientMode();
         }
 
         private void mayUpdateThroughput(double limit, RateLimiter rateLimiter)

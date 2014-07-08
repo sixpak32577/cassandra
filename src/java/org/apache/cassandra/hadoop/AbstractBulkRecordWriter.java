@@ -21,14 +21,16 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.auth.IAuthenticator;
 import org.apache.cassandra.config.CFMetaData;
@@ -38,25 +40,26 @@ import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.io.sstable.SSTableLoader;
 import org.apache.cassandra.streaming.StreamState;
-import org.apache.cassandra.thrift.*;
+import org.apache.cassandra.thrift.AuthenticationRequest;
+import org.apache.cassandra.thrift.Cassandra;
+import org.apache.cassandra.thrift.CfDef;
+import org.apache.cassandra.thrift.KsDef;
+import org.apache.cassandra.thrift.TokenRange;
 import org.apache.cassandra.utils.OutputHandler;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
-import org.apache.thrift.protocol.*;
-import org.apache.thrift.transport.TFramedTransport;
-import org.apache.thrift.transport.TSocket;
-import org.apache.thrift.transport.TTransport;
-import org.apache.thrift.transport.TTransportException;
 import org.apache.hadoop.util.Progressable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class AbstractBulkRecordWriter<K, V> extends RecordWriter<K, V>
 implements org.apache.hadoop.mapred.RecordWriter<K, V>
 {
-    protected final static String OUTPUT_LOCATION = "mapreduce.output.bulkoutputformat.localdir";
-    protected final static String BUFFER_SIZE_IN_MB = "mapreduce.output.bulkoutputformat.buffersize";
-    protected final static String STREAM_THROTTLE_MBITS = "mapreduce.output.bulkoutputformat.streamthrottlembits";
-    protected final static String MAX_FAILED_HOSTS = "mapreduce.output.bulkoutputformat.maxfailedhosts";
+    public final static String OUTPUT_LOCATION = "mapreduce.output.bulkoutputformat.localdir";
+    public final static String BUFFER_SIZE_IN_MB = "mapreduce.output.bulkoutputformat.buffersize";
+    public final static String STREAM_THROTTLE_MBITS = "mapreduce.output.bulkoutputformat.streamthrottlembits";
+    public final static String MAX_FAILED_HOSTS = "mapreduce.output.bulkoutputformat.maxfailedhosts";
     
     private final Logger logger = LoggerFactory.getLogger(AbstractBulkRecordWriter.class);
     
@@ -149,18 +152,20 @@ implements org.apache.hadoop.mapred.RecordWriter<K, V>
     public static class ExternalClient extends SSTableLoader.Client
     {
         private final Map<String, Map<String, CFMetaData>> knownCfs = new HashMap<>();
+        private final Configuration conf;
         private final String hostlist;
         private final int rpcPort;
         private final String username;
         private final String password;
 
-        public ExternalClient(String hostlist, int port, String username, String password)
+        public ExternalClient(Configuration conf)
         {
-            super();
-            this.hostlist = hostlist;
-            this.rpcPort = port;
-            this.username = username;
-            this.password = password;
+          super();
+          this.conf = conf;
+          this.hostlist = ConfigHelper.getOutputInitialAddress(conf);
+          this.rpcPort = ConfigHelper.getOutputRpcPort(conf);
+          this.username = ConfigHelper.getOutputKeyspaceUserName(conf);
+          this.password = ConfigHelper.getOutputKeyspacePassword(conf);
         }
 
         public void init(String keyspace)
@@ -184,7 +189,7 @@ implements org.apache.hadoop.mapred.RecordWriter<K, V>
                 try
                 {
                     InetAddress host = hostiter.next();
-                    Cassandra.Client client = createThriftClient(host.getHostAddress(), rpcPort);
+                    Cassandra.Client client = ConfigHelper.createConnection(conf, host.getHostAddress(), rpcPort);
 
                     // log in
                     client.set_keyspace(keyspace);
@@ -233,16 +238,7 @@ implements org.apache.hadoop.mapred.RecordWriter<K, V>
         {
             Map<String, CFMetaData> cfs = knownCfs.get(keyspace);
             return cfs != null ? cfs.get(cfName) : null;
-        }
-
-        private static Cassandra.Client createThriftClient(String host, int port) throws TTransportException
-        {
-            TSocket socket = new TSocket(host, port);
-            TTransport trans = new TFramedTransport(socket);
-            trans.open();
-            TProtocol protocol = new org.apache.thrift.protocol.TBinaryProtocol(trans);
-            return new Cassandra.Client(protocol);
-        }
+        } 
     }
 
     public static class NullOutputHandler implements OutputHandler

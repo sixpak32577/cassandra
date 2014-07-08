@@ -24,12 +24,16 @@ import java.util.List;
 
 import org.apache.cassandra.hadoop.AbstractBulkOutputFormat;
 import org.apache.cassandra.hadoop.ConfigHelper;
-import org.apache.hadoop.mapreduce.*;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapreduce.RecordWriter;
+import org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.util.Progressable;
 
 /**
  * The <code>CqlBulkOutputFormat</code> acts as a Hadoop-specific
  * OutputFormat that allows reduce tasks to store keys (and corresponding
- *  binded variable values) as CQL rows (and respective columns) in a given
+ * bound variable values) as CQL rows (and respective columns) in a given
  * ColumnFamily.
  *
  * <p>
@@ -43,11 +47,11 @@ import org.apache.hadoop.mapreduce.*;
  * simple.
  * </p>
  */
-public class CqlBulkOutputFormat extends AbstractBulkOutputFormat<List<ByteBuffer>, List<ByteBuffer>>
+public class CqlBulkOutputFormat extends AbstractBulkOutputFormat<Object, List<ByteBuffer>>
 {   
     /** Fills the deprecated OutputFormat interface for streaming. */
     @Deprecated
-    public CqlBulkRecordWriter getRecordWriter(org.apache.hadoop.fs.FileSystem filesystem, org.apache.hadoop.mapred.JobConf job, String name, org.apache.hadoop.util.Progressable progress) throws IOException
+    public CqlBulkRecordWriter getRecordWriter(FileSystem filesystem, JobConf job, String name, Progressable progress) throws IOException
     {
         return new CqlBulkRecordWriter(job, progress);
     }

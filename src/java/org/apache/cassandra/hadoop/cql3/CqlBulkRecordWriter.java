@@ -78,6 +78,7 @@ public class CqlBulkRecordWriter extends AbstractBulkRecordWriter<Object, List<B
     
     private void setConfigs() throws IOException
     {
+        // if anything is missing, exceptions will be thrown here, instead of on write()
         keyspace = ConfigHelper.getOutputKeyspace(conf);
         columnFamily = ConfigHelper.getOutputColumnFamily(conf);
         schema = CqlConfigHelper.getColumnFamilySchema(conf, columnFamily);

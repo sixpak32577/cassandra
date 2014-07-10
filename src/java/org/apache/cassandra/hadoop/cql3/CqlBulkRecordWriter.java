@@ -81,8 +81,8 @@ public class CqlBulkRecordWriter extends AbstractBulkRecordWriter<Object, List<B
         // if anything is missing, exceptions will be thrown here, instead of on write()
         keyspace = ConfigHelper.getOutputKeyspace(conf);
         columnFamily = ConfigHelper.getOutputColumnFamily(conf);
-        schema = CqlConfigHelper.getColumnFamilySchema(conf, columnFamily);
-        insertStatement = CqlConfigHelper.getColumnFamilyInsertStatement(conf, columnFamily);
+        schema = CqlBulkOutputFormat.getColumnFamilySchema(conf, columnFamily);
+        insertStatement = CqlBulkOutputFormat.getColumnFamilyInsertStatement(conf, columnFamily);
         outputDir = getColumnFamilyDirectory();
     }
 

@@ -24,6 +24,7 @@ import java.util.List;
 
 import org.apache.cassandra.hadoop.AbstractBulkOutputFormat;
 import org.apache.cassandra.hadoop.ConfigHelper;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.RecordWriter;
@@ -49,6 +50,10 @@ import org.apache.hadoop.util.Progressable;
  */
 public class CqlBulkOutputFormat extends AbstractBulkOutputFormat<Object, List<ByteBuffer>>
 {   
+  
+    private static final String OUTPUT_CQL_SCHEMA_PREFIX = "cassandra.columnfamily.schema.";
+    private static final String OUTPUT_CQL_INSERT_PREFIX = "cassandra.columnfamily.insert.";
+  
     /** Fills the deprecated OutputFormat interface for streaming. */
     @Deprecated
     public CqlBulkRecordWriter getRecordWriter(FileSystem filesystem, JobConf job, String name, Progressable progress) throws IOException
@@ -68,4 +73,35 @@ public class CqlBulkOutputFormat extends AbstractBulkOutputFormat<Object, List<B
     {
         return new CqlBulkRecordWriter(context);
     }
+    
+    public static void setColumnFamilySchema(Configuration conf, String columnFamily, String schema)
+    {
+        conf.set(OUTPUT_CQL_SCHEMA_PREFIX + columnFamily, schema);
+    }
+
+    public static void setColumnFamilyInsertStatement(Configuration conf, String columnFamily, String insertStatement)
+    {
+        conf.set(OUTPUT_CQL_INSERT_PREFIX + columnFamily, insertStatement);
+    }
+    
+    public static String getColumnFamilySchema(Configuration conf, String columnFamily)
+    {
+        String schema = conf.get(OUTPUT_CQL_SCHEMA_PREFIX + columnFamily);
+        if (schema == null)
+        { 
+            throw new UnsupportedOperationException("You must set the ColumnFamily schema using setColumnFamilySchema.");
+        }
+        return schema; 
+    }
+    
+    public static String getColumnFamilyInsertStatement(Configuration conf, String columnFamily)
+    {
+        String insert = conf.get(OUTPUT_CQL_INSERT_PREFIX + columnFamily); 
+        if (insert == null)
+        {
+            throw new UnsupportedOperationException("You must set the ColumnFamily insert statement using setColumnFamilySchema.");
+        }
+        return insert;
+    }
+    
 }

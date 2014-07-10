@@ -89,9 +89,6 @@ public class CqlConfigHelper
     private static final String INPUT_NATIVE_SSL_CIPHER_SUITES = "cassandra.input.native.ssl.cipher.suites";
 
     private static final String OUTPUT_CQL = "cassandra.output.cql";
-
-    private static final String OUTPUT_CQL_SCHEMA_PREFIX = "cassandra.columnfamily.schema.";
-    private static final String OUTPUT_CQL_INSERT_PREFIX = "cassandra.columnfamily.insert.";
     
     /**
      * Set the CQL columns for the input of this job.
@@ -317,26 +314,6 @@ public class CqlConfigHelper
         return builder.build();
     }
 
-    public static String getColumnFamilySchema(Configuration conf, String columnFamily)
-    {
-        String schema = conf.get(OUTPUT_CQL_SCHEMA_PREFIX + columnFamily);
-        if (schema == null)
-        { 
-            throw new UnsupportedOperationException("You must set the ColumnFamily schema using setColumnFamilySchema.");
-        }
-        return schema; 
-    }
-    
-    public static String getColumnFamilyInsertStatement(Configuration conf, String columnFamily)
-    {
-        String insert = conf.get(OUTPUT_CQL_INSERT_PREFIX + columnFamily); 
-        if (insert == null)
-        {
-            throw new UnsupportedOperationException("You must set the ColumnFamily insert statement using setColumnFamilySchema.");
-        }
-        return insert;
-    }
-    
     public static void setInputCoreConnections(Configuration conf, String connections)
     {
         conf.set(INPUT_NATIVE_CORE_CONNECTIONS_PER_HOST, connections);
@@ -431,17 +408,7 @@ public class CqlConfigHelper
     {
         conf.set(INPUT_NATIVE_PORT, port);
     }
-    
-    public static void setColumnFamilySchema(Configuration conf, String columnFamily, String schema)
-    {
-        conf.set(OUTPUT_CQL_SCHEMA_PREFIX + columnFamily, schema);
-    }
 
-    public static void setColumnFamilyInsertStatement(Configuration conf, String columnFamily, String insertStatement)
-    {
-        conf.set(OUTPUT_CQL_INSERT_PREFIX + columnFamily, insertStatement);
-    }
-    
     private static PoolingOptions getReadPoolingOptions(Configuration conf)
     {
         Optional<Integer> coreConnections = getInputCoreConnections(conf);

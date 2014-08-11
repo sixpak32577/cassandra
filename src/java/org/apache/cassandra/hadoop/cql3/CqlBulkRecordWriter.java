@@ -192,12 +192,8 @@ public class CqlBulkRecordWriter extends AbstractBulkRecordWriter<Object, List<B
                 return metadata;
             }
             
-            if (columnFamily.equals(cfName))
-            {
-                return CFMetaData.compile(cql, keyspace);
-            }
-            
-            return null;
+            Map<String, CFMetaData> cfs = knownCqlCfs.get(keyspace);
+            return cfs != null ? cfs.get(cfName) : null;
         }
     }
 }

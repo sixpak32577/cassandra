@@ -103,5 +103,4 @@ public class CqlBulkOutputFormat extends AbstractBulkOutputFormat<Object, List<B
         }
         return insert;
     }
-    
 }

@@ -341,6 +341,7 @@ public class CQLSSTableWriter implements Closeable
                 else if (Schema.instance.getCFMetaData(this.schema.ksName, this.schema.cfName) == null)
                 {
                     Schema.instance.load(this.schema);
+                    Schema.instance.getKeyspaceMetaData(this.schema.ksName).put(this.schema.cfName, this.schema);
                 }
 
                 return this;

@@ -30,6 +30,9 @@
  * Configurable client timeout for cqlsh (CASSANDRA-7516)
  * Include snippet of CQL query near syntax error in messages (CASSANDRA-7111)
 Merged from 2.0:
+ * (Hadoop) Add CqlOutputFormat (CASSANDRA-6927)
+ * Don't depend on cassandra config for nodetool ring (CASSANDRA-7508)
+ * (cqlsh) Fix failing cqlsh formatting tests (CASSANDRA-7703)
  * Fix IncompatibleClassChangeError from hadoop2 (CASSANDRA-7229)
  * Add 'nodetool sethintedhandoffthrottlekb' (CASSANDRA-7635)
  * (cqlsh) Add tab-completion for CREATE/DROP USER IF [NOT] EXISTS (CASSANDRA-7611)
@@ -38,13 +41,28 @@ Merged from 2.0:
 
 
 2.1.0-rc6
+ * Skip strict endpoint selection for ranges if RF == nodes (CASSANRA-7765)
+ * Fix Thrift range filtering without 2ary index lookups (CASSANDRA-7741)
+ * Add tracing entries about concurrent range requests (CASSANDRA-7599)
+ * (cqlsh) Fix DESCRIBE for NTS keyspaces (CASSANDRA-7729)
+ * Remove netty buffer ref-counting (CASSANDRA-7735)
+ * Pass mutated cf to index updater for use by PRSI (CASSANDRA-7742)
  * Include stress yaml example in release and deb (CASSANDRA-7717)
  * workaround for netty issue causing corrupted data off the wire (CASSANDRA-7695)
  * cqlsh DESC CLUSTER fails retrieving ring information (CASSANDRA-7687)
  * Fix binding null values inside UDT (CASSANDRA-7685)
  * Fix UDT field selection with empty fields (CASSANDRA-7670)
  * Bogus deserialization of static cells from sstable (CASSANDRA-7684)
+ * Fix NPE on compaction leftover cleanup for dropped table (CASSANDRA-7770)
 Merged from 2.0:
+ * Remove duplicates from StorageService.getJoiningNodes (CASSANDRA-7478)
+ * Clone token map outside of hot gossip loops (CASSANDRA-7758)
+ * Fix MS expiring map timeout for Paxos messages (CASSANDRA-7752)
+ * Do not flush on truncate if durable_writes is false (CASSANDRA-7750)
+ * Give CRR a default input_cql Statement (CASSANDRA-7226)
+ * Better error message when adding a collection with the same name
+   than a previously dropped one (CASSANDRA-6276)
+ * Fix validation when adding static columns (CASSANDRA-7730)
  * (Thrift) fix range deletion of supercolumns (CASSANDRA-7733)
  * Fix potential AssertionError in RangeTombstoneList (CASSANDRA-7700)
  * Validate arguments of blobAs* functions (CASSANDRA-7707)
@@ -166,6 +184,16 @@ Merged from 2.0:
  * Backport CASSANDRA-6747 (CASSANDRA-7560)
  * Track max/min timestamps for range tombstones (CASSANDRA-7647)
  * Fix NPE when listing saved caches dir (CASSANDRA-7632)
+Merged from 1.2:
+ * Clone token map outside of hot gossip loops (CASSANDRA-7758)
+ * Add stop method to EmbeddedCassandraService (CASSANDRA-7595)
+ * Support connecting to ipv6 jmx with nodetool (CASSANDRA-7669)
+ * Set gc_grace_seconds to seven days for system schema tables (CASSANDRA-7668)
+ * SimpleSeedProvider no longer caches seeds forever (CASSANDRA-7663)
+ * Set correct stream ID on responses when non-Exception Throwables
+   are thrown while handling native protocol messages (CASSANDRA-7470)
+ * Fix row size miscalculation in LazilyCompactedRow (CASSANDRA-7543)
+ * Fix race in background compaction check (CASSANDRA-7745)
 
 
 2.1.0-rc1

@@ -200,6 +200,18 @@ public class DataTracker
             if (inactive.size() < set.size())
                 return false;
 
+            if (Iterables.any(set, new Predicate<SSTableReader>()
+            {
+                @Override
+                public boolean apply(SSTableReader sstable)
+                {
+                    return sstable.isMarkedCompacted();
+                }
+            }))
+            {
+                return false;
+            }
+
             View newView = currentView.markCompacting(set);
             if (view.compareAndSet(currentView, newView))
                 return true;
@@ -252,6 +264,12 @@ public class DataTracker
     {
         replace(sstables, Collections.<SSTableReader>emptyList());
         notifySSTablesChanged(sstables, allReplacements, compactionType);
+        for (SSTableReader sstable : sstables)
+        {
+            long bytesOnDisk = sstable.bytesOnDisk();
+            cfstore.metric.totalDiskSpaceUsed.inc(bytesOnDisk);
+            cfstore.metric.liveDiskSpaceUsed.inc(bytesOnDisk);
+        }
     }
 
     public void addInitialSSTables(Collection<SSTableReader> sstables)

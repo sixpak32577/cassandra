@@ -79,11 +79,16 @@ public class YamlConfigurationLoader implements ConfigurationLoader
         return url;
     }
 
+    @Override
     public Config loadConfig() throws ConfigurationException
+    {
+        return loadConfig(getStorageConfigURL());
+    }
+
+    public Config loadConfig(URL url) throws ConfigurationException
     {
         try
         {
-            URL url = getStorageConfigURL();
             logger.info("Loading settings from {}", url);
             byte[] configBytes;
             try (InputStream is = url.openStream())

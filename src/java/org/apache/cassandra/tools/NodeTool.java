@@ -742,8 +742,12 @@ public class NodeTool
                     System.out.println("\t\tCompacted partition minimum bytes: " + probe.getColumnFamilyMetric(keyspaceName, cfName, "MinRowSize"));
                     System.out.println("\t\tCompacted partition maximum bytes: " + probe.getColumnFamilyMetric(keyspaceName, cfName, "MaxRowSize"));
                     System.out.println("\t\tCompacted partition mean bytes: " + probe.getColumnFamilyMetric(keyspaceName, cfName, "MeanRowSize"));
-                    System.out.println("\t\tAverage live cells per slice (last five minutes): " + ((JmxReporter.HistogramMBean) probe.getColumnFamilyMetric(keyspaceName, cfName, "LiveScannedHistogram")).getMean());
-                    System.out.println("\t\tAverage tombstones per slice (last five minutes): " + ((JmxReporter.HistogramMBean) probe.getColumnFamilyMetric(keyspaceName, cfName, "TombstoneScannedHistogram")).getMean());
+                    JmxReporter.HistogramMBean histogram = (JmxReporter.HistogramMBean) probe.getColumnFamilyMetric(keyspaceName, cfName, "LiveScannedHistogram");
+                    System.out.println("\t\tAverage live cells per slice (last five minutes): " + histogram.getMean());
+                    System.out.println("\t\tMaximum live cells per slice (last five minutes): " + histogram.getMax());
+                    histogram = (JmxReporter.HistogramMBean) probe.getColumnFamilyMetric(keyspaceName, cfName, "TombstoneScannedHistogram");
+                    System.out.println("\t\tAverage tombstones per slice (last five minutes): " + histogram.getMean());
+                    System.out.println("\t\tMaximum tombstones per slice (last five minutes): " + histogram.getMax());
 
                     System.out.println("");
                 }
@@ -824,7 +828,7 @@ public class NodeTool
             {
                 for (String ks : filter.keySet())
                     if (verifier.get(ks).size() > 0)
-                        throw new IllegalArgumentException("Unknown tables: " + verifier.get(ks).toString() + " in keyspace: " + ks);
+                        throw new IllegalArgumentException("Unknown tables: " + verifier.get(ks) + " in keyspace: " + ks);
             }
         }
     }

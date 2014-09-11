@@ -17,7 +17,6 @@
  */
 package org.apache.cassandra.tools;
 
-import java.io.IOException;
 import java.util.*;
 
 import org.apache.commons.cli.*;
@@ -39,7 +38,7 @@ public class StandaloneUpgrader
     private static final String DEBUG_OPTION  = "debug";
     private static final String HELP_OPTION  = "help";
 
-    public static void main(String args[]) throws IOException
+    public static void main(String args[])
     {
         Options options = Options.parseArgs(args);
         try

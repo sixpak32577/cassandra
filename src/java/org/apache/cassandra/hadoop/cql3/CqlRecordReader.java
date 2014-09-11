@@ -33,8 +33,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang.StringUtils;
-
+import org.apache.commons.lang3.StringUtils;
 import org.apache.cassandra.hadoop.HadoopCompat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,7 +66,7 @@ import com.datastax.driver.core.Session;
  *       token(partition_key1, ... , partition_keyn) <= ?  (in the right order) 
  */
 public class CqlRecordReader extends RecordReader<Long, Row>
-        implements org.apache.hadoop.mapred.RecordReader<Long, Row>
+        implements org.apache.hadoop.mapred.RecordReader<Long, Row>, AutoCloseable
 {
     private static final Logger logger = LoggerFactory.getLogger(CqlRecordReader.class);
 
@@ -124,24 +123,9 @@ public class CqlRecordReader extends RecordReader<Long, Row>
             if (cluster != null)
                 return;
 
-            // create connection using thrift
+            // create a Cluster instance
             String[] locations = split.getLocations();
-            Exception lastException = null;
-            for (String location : locations)
-            {
-                try
-                {
-                    cluster = CqlConfigHelper.getInputCluster(location, conf);
-                    break;
-                }
-                catch (Exception e)
-                {
-                    lastException = e;
-                    logger.warn("Failed to create authenticated client to {}", location);
-                }
-            }
-            if (cluster == null && lastException != null)
-                throw lastException;
+            cluster = CqlConfigHelper.getInputCluster(locations, conf);
         }
         catch (Exception e)
         {

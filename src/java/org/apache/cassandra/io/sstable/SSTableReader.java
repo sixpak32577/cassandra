@@ -1071,7 +1071,7 @@ public class SSTableReader extends SSTable
         return indexSummary.getEffectiveIndexInterval();
     }
 
-    public void releaseSummary() throws IOException
+    public void releaseSummary()
     {
         indexSummary.close();
         indexSummary = null;
@@ -1616,6 +1616,11 @@ public class SSTableReader extends SSTable
             assert replacedBy == null;
         }
         return !isCompacted.getAndSet(true);
+    }
+
+    public boolean isMarkedCompacted()
+    {
+        return isCompacted.get();
     }
 
     public void markSuspect()

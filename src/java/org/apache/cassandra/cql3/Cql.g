@@ -42,7 +42,7 @@ options {
     import org.apache.cassandra.auth.IResource;
     import org.apache.cassandra.cql3.*;
     import org.apache.cassandra.cql3.statements.*;
-    import org.apache.cassandra.cql3.functions.FunctionCall;
+    import org.apache.cassandra.cql3.functions.*;
     import org.apache.cassandra.db.marshal.CollectionType;
     import org.apache.cassandra.exceptions.ConfigurationException;
     import org.apache.cassandra.exceptions.InvalidRequestException;
@@ -300,8 +300,7 @@ unaliasedSelector returns [Selectable s]
     :  ( c=cident                                  { tmp = c; }
        | K_WRITETIME '(' c=cident ')'              { tmp = new Selectable.WritetimeOrTTL(c, true); }
        | K_TTL       '(' c=cident ')'              { tmp = new Selectable.WritetimeOrTTL(c, false); }
-       | f=functionName args=selectionFunctionArgs { tmp = new Selectable.WithFunction("", f, args); }
-       | bn=udfName '::' fn=udfName args=selectionFunctionArgs { tmp = new Selectable.WithFunction(bn, fn, args); }
+       | f=functionName args=selectionFunctionArgs { tmp = new Selectable.WithFunction(f, args); }
        ) ( '.' fi=cident { tmp = new Selectable.WithFieldSelection(tmp, fi); } )* { $s = tmp; }
     ;
 
@@ -324,10 +323,9 @@ whereClause returns [List<Relation> clause]
 
 orderByClause[Map<ColumnIdentifier, Boolean> orderings]
     @init{
-        ColumnIdentifier orderBy = null;
         boolean reversed = false;
     }
-    : c=cident { orderBy = c; } (K_ASC | K_DESC { reversed = true; })? { orderings.put(c, reversed); }
+    : c=cident (K_ASC | K_DESC { reversed = true; })? { orderings.put(c, reversed); }
     ;
 
 /**
@@ -494,40 +492,57 @@ createFunctionStatement returns [CreateFunctionStatement expr]
         boolean ifNotExists = false;
 
         boolean deterministic = true;
-        String language = "CLASS";
+        String language = "class";
         String bodyOrClassName = null;
-        List<CreateFunctionStatement.Argument> args = new ArrayList<CreateFunctionStatement.Argument>();
+        List<ColumnIdentifier> argsNames = new ArrayList<>();
+        List<CQL3Type.Raw> argsTypes = new ArrayList<>();
     }
     : K_CREATE (K_OR K_REPLACE { orReplace = true; })?
       ((K_NON { deterministic = false; })? K_DETERMINISTIC)?
       K_FUNCTION
       (K_IF K_NOT K_EXISTS { ifNotExists = true; })?
-      ( bn=udfName '::' )?
-      fn=udfName
+      fn=functionName
       '('
         (
-          k=cident v=comparatorType { args.add(new CreateFunctionStatement.Argument(k, v)); }
-          ( ',' k=cident v=comparatorType { args.add(new CreateFunctionStatement.Argument(k, v)); } )*
+          k=cident v=comparatorType { argsNames.add(k); argsTypes.add(v); }
+          ( ',' k=cident v=comparatorType { argsNames.add(k); argsTypes.add(v); } )*
         )?
       ')'
       K_RETURNS
       rt=comparatorType
       (
-          (                      { language="CLASS"; } cls = STRING_LITERAL { bodyOrClassName = $cls.text; } )
-        | ( K_LANGUAGE l = IDENT { language=$l.text; } K_BODY body = ((~K_END_BODY)*) { bodyOrClassName = $body.text; } K_END_BODY )
+          ( K_USING cls = STRING_LITERAL { bodyOrClassName = $cls.text; } )
+        | ( K_LANGUAGE l = IDENT { language=$l.text; } K_AS
+            (
+              ( body = STRING_LITERAL
+                { bodyOrClassName = $body.text; }
+              )
+              /* TODO placeholder for pg-style function body */
+            )
+          )
       )
-      { $expr = new CreateFunctionStatement(bn, fn, language, bodyOrClassName, deterministic, rt, args, orReplace, ifNotExists); }
+      { $expr = new CreateFunctionStatement(fn, language.toLowerCase(), bodyOrClassName, deterministic, argsNames, argsTypes, rt, orReplace, ifNotExists); }
     ;
 
 dropFunctionStatement returns [DropFunctionStatement expr]
     @init {
         boolean ifExists = false;
+        List<CQL3Type.Raw> argsTypes = new ArrayList<>();
+        boolean argsPresent = false;
     }
     : K_DROP K_FUNCTION
       (K_IF K_EXISTS { ifExists = true; } )?
-      ( bn=udfName '::' )?
-      fn=udfName
-      { $expr = new DropFunctionStatement(bn, fn, ifExists); }
+      fn=functionName
+      (
+        '('
+          (
+            v=comparatorType { argsTypes.add(v); }
+            ( ',' v=comparatorType { argsTypes.add(v); } )*
+          )?
+        ')'
+        { argsPresent = true; }
+      )?
+      { $expr = new DropFunctionStatement(fn, argsTypes, argsPresent, ifExists); }
     ;
 
 /**
@@ -629,16 +644,21 @@ indexIdent returns [IndexTarget id]
  * CREATE TRIGGER triggerName ON columnFamily USING 'triggerClass';
  */
 createTriggerStatement returns [CreateTriggerStatement expr]
-    : K_CREATE K_TRIGGER (name=IDENT) K_ON cf=columnFamilyName K_USING cls=STRING_LITERAL
-      { $expr = new CreateTriggerStatement(cf, $name.text, $cls.text); }
+    @init {
+        boolean ifNotExists = false;
+    }
+    : K_CREATE K_TRIGGER (K_IF K_NOT K_EXISTS { ifNotExists = true; } )? (name=cident)
+        K_ON cf=columnFamilyName K_USING cls=STRING_LITERAL
+      { $expr = new CreateTriggerStatement(cf, name.toString(), $cls.text, ifNotExists); }
     ;
 
 /**
- * DROP TRIGGER triggerName ON columnFamily;
+ * DROP TRIGGER [IF EXISTS] triggerName ON columnFamily;
  */
 dropTriggerStatement returns [DropTriggerStatement expr]
-    : K_DROP K_TRIGGER (name=IDENT) K_ON cf=columnFamilyName
-      { $expr = new DropTriggerStatement(cf, $name.text); }
+     @init { boolean ifExists = false; }
+    : K_DROP K_TRIGGER (K_IF K_EXISTS { ifExists = true; } )? (name=cident) K_ON cf=columnFamilyName
+      { $expr = new DropTriggerStatement(cf, name.toString(), ifExists); }
     ;
 
 /**
@@ -956,15 +976,15 @@ intValue returns [Term.Raw value]
     | QMARK         { $value = newBindVariables(null); }
     ;
 
-functionName returns [String s]
+functionName returns [FunctionName s]
+    : f=allowedFunctionName                            { $s = new FunctionName(f); }
+    | b=allowedFunctionName '::' f=allowedFunctionName { $s = new FunctionName(b, f); }
+    ;
+
+allowedFunctionName returns [String s]
     : f=IDENT                       { $s = $f.text; }
     | u=unreserved_function_keyword { $s = u; }
     | K_TOKEN                       { $s = "token"; }
-    ;
-
-udfName returns [String s]
-    : f=IDENT                       { $s = $f.text; }
-    | u=unreserved_function_keyword { $s = u; }
     ;
 
 functionArgs returns [List<Term.Raw> a]
@@ -976,8 +996,7 @@ functionArgs returns [List<Term.Raw> a]
 
 term returns [Term.Raw term]
     : v=value                          { $term = v; }
-    | f=functionName args=functionArgs { $term = new FunctionCall.Raw("", f, args); }
-    | bn=udfName '::' fn=udfName args=functionArgs { $term = new FunctionCall.Raw(bn, fn, args); }
+    | f=functionName args=functionArgs { $term = new FunctionCall.Raw(f, args); }
     | '(' c=comparatorType ')' t=term  { $term = new TypeCast(c, t); }
     ;
 
@@ -1029,8 +1048,20 @@ specializedColumnOperation[List<Pair<ColumnIdentifier, Operation.RawUpdate>> ope
 
 columnCondition[List<Pair<ColumnIdentifier, ColumnCondition.Raw>> conditions]
     // Note: we'll reject duplicates later
-    : key=cident '=' t=term { conditions.add(Pair.create(key, ColumnCondition.Raw.simpleEqual(t))); }
-    | key=cident '[' element=term ']' '=' t=term { conditions.add(Pair.create(key, ColumnCondition.Raw.collectionEqual(t, element))); } 
+    : key=cident
+        ( op=relationType t=term { conditions.add(Pair.create(key, ColumnCondition.Raw.simpleCondition(t, op))); }
+        | K_IN
+            ( values=singleColumnInValues { conditions.add(Pair.create(key, ColumnCondition.Raw.simpleInCondition(values))); }
+            | marker=inMarker { conditions.add(Pair.create(key, ColumnCondition.Raw.simpleInCondition(marker))); }
+            )
+        | '[' element=term ']'
+            ( op=relationType t=term { conditions.add(Pair.create(key, ColumnCondition.Raw.collectionCondition(t, element, op))); }
+            | K_IN
+                ( values=singleColumnInValues { conditions.add(Pair.create(key, ColumnCondition.Raw.collectionInCondition(element, values))); }
+                | marker=inMarker { conditions.add(Pair.create(key, ColumnCondition.Raw.collectionInCondition(element, marker))); }
+                )
+            )
+        )
     ;
 
 properties[PropertyDefinitions props]
@@ -1053,6 +1084,7 @@ relationType returns [Relation.Type op]
     | '<=' { $op = Relation.Type.LTE; }
     | '>'  { $op = Relation.Type.GT; }
     | '>=' { $op = Relation.Type.GTE; }
+    | '!=' { $op = Relation.Type.NEQ; }
     ;
 
 relation[List<Relation> clauses]
@@ -1131,6 +1163,14 @@ comparatorType returns [CQL3Type.Raw t]
     | c=collection_type { $t = c; }
     | tt=tuple_type     { $t = tt; }
     | id=userTypeName   { $t = CQL3Type.Raw.userType(id); }
+    | K_FROZEN '<' f=comparatorType '>'
+      {
+        try {
+            $t = CQL3Type.Raw.frozen(f);
+        } catch (InvalidRequestException e) {
+            addRecognitionError(e.getMessage());
+        }
+      }
     | s=STRING_LITERAL
       {
         try {
@@ -1236,8 +1276,6 @@ basic_unreserved_keyword returns [String str]
         | K_LANGUAGE
         | K_NON
         | K_DETERMINISTIC
-        | K_BODY
-        | K_END_BODY
         ) { $str = $k.text; }
     ;
 
@@ -1343,6 +1381,7 @@ K_TUPLE:       T U P L E;
 
 K_TRIGGER:     T R I G G E R;
 K_STATIC:      S T A T I C;
+K_FROZEN:      F R O Z E N;
 
 K_FUNCTION:    F U N C T I O N;
 K_RETURNS:     R E T U R N S;
@@ -1351,8 +1390,6 @@ K_NON:         N O N;
 K_OR:          O R;
 K_REPLACE:     R E P L A C E;
 K_DETERMINISTIC: D E T E R M I N I S T I C;
-K_END_BODY:    E N D '_' B O D Y;
-K_BODY:        B O D Y;
 
 // Case-insensitive alpha characters
 fragment A: ('a'|'A');

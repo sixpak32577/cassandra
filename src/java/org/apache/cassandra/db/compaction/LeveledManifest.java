@@ -31,9 +31,7 @@ import com.google.common.primitives.Ints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.DatabaseDescriptor;
-import org.apache.cassandra.config.Schema;
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.RowPosition;
 import org.apache.cassandra.dht.Bounds;
@@ -645,7 +643,10 @@ public class LeveledManifest
                 // add sstables from L1 that overlap candidates
                 // if the overlapping ones are already busy in a compaction, leave it out.
                 // TODO try to find a set of L0 sstables that only overlaps with non-busy L1 sstables
-                candidates = Sets.union(candidates, overlapping(candidates, getLevel(1)));
+                Set<SSTableReader> l1overlapping = overlapping(candidates, getLevel(1));
+                if (Sets.intersection(l1overlapping, compacting).size() > 0)
+                    return Collections.emptyList();
+                candidates = Sets.union(candidates, l1overlapping);
             }
             if (candidates.size() < 2)
                 return Collections.emptyList();

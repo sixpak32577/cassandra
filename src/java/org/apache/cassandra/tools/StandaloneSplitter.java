@@ -19,7 +19,6 @@
 package org.apache.cassandra.tools;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.*;
 
 import org.apache.commons.cli.*;
@@ -45,7 +44,7 @@ public class StandaloneSplitter
     private static final String NO_SNAPSHOT_OPTION = "no-snapshot";
     private static final String SIZE_OPTION = "size";
 
-    public static void main(String args[]) throws IOException
+    public static void main(String args[])
     {
         Options options = Options.parseArgs(args);
         try
@@ -202,7 +201,7 @@ public class StandaloneSplitter
                 opts.sizeInMB = DEFAULT_SSTABLE_SIZE;
 
                 if (cmd.hasOption(SIZE_OPTION))
-                    opts.sizeInMB = Integer.valueOf(cmd.getOptionValue(SIZE_OPTION));
+                    opts.sizeInMB = Integer.parseInt(cmd.getOptionValue(SIZE_OPTION));
 
                 return opts;
             }

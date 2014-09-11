@@ -23,7 +23,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,7 +52,7 @@ public class Memtable
     private static final Logger logger = LoggerFactory.getLogger(Memtable.class);
 
     static final MemtablePool MEMORY_POOL = DatabaseDescriptor.getMemtableAllocatorPool();
-    private static final int ROW_OVERHEAD_HEAP_SIZE = estimateRowOverhead(Integer.valueOf(System.getProperty("cassandra.memtable_row_overhead_computation_step", "100000")));
+    private static final int ROW_OVERHEAD_HEAP_SIZE = estimateRowOverhead(Integer.parseInt(System.getProperty("cassandra.memtable_row_overhead_computation_step", "100000")));
 
     private final MemtableAllocator allocator;
     private final AtomicLong liveDataSize = new AtomicLong(0);
@@ -319,7 +318,6 @@ public class Memtable
         }
 
         private SSTableReader writeSortedContents(ReplayPosition context, File sstableDirectory)
-        throws ExecutionException, InterruptedException
         {
             logger.info("Writing {}", Memtable.this.toString());
 
@@ -375,7 +373,7 @@ public class Memtable
             }
         }
 
-        public SSTableWriter createFlushWriter(String filename) throws ExecutionException, InterruptedException
+        public SSTableWriter createFlushWriter(String filename)
         {
             MetadataCollector sstableMetadataCollector = new MetadataCollector(cfs.metadata.comparator).replayPosition(context);
             return new SSTableWriter(filename,

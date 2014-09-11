@@ -69,16 +69,16 @@ public class RangeTombstone extends Interval<Composite, DeletionTime> implements
     {
         digest.update(min.toByteBuffer().duplicate());
         digest.update(max.toByteBuffer().duplicate());
-        DataOutputBuffer buffer = new DataOutputBuffer();
-        try
+
+        try (DataOutputBuffer buffer = new DataOutputBuffer())
         {
             buffer.writeLong(data.markedForDeleteAt);
+            digest.update(buffer.getData(), 0, buffer.getLength());
         }
         catch (IOException e)
         {
             throw new RuntimeException(e);
         }
-        digest.update(buffer.getData(), 0, buffer.getLength());
     }
 
     /**
@@ -109,6 +109,7 @@ public class RangeTombstone extends Interval<Composite, DeletionTime> implements
                 return comparator.compare(t1.max, t2.max);
             }
         });
+        public final Set<RangeTombstone> expired = new HashSet<RangeTombstone>();
         private int atomCount;
 
         public Tracker(Comparator<Composite> comparator)
@@ -140,6 +141,9 @@ public class RangeTombstone extends Interval<Composite, DeletionTime> implements
                 // If ever the first column is outside the range, skip it (in
                 // case update() hasn't been called yet)
                 if (comparator.compare(firstColumn.name(), tombstone.max) > 0)
+                    continue;
+
+                if (expired.contains(tombstone))
                     continue;
 
                 RangeTombstone updated = new RangeTombstone(firstColumn.name(), tombstone.max, tombstone.data);
@@ -176,7 +180,7 @@ public class RangeTombstone extends Interval<Composite, DeletionTime> implements
          * If column is a Cell, check if any tracked range is useless and
          * can be removed. If it is a RangeTombstone, add it to this tracker.
          */
-        public void update(OnDiskAtom atom)
+        public void update(OnDiskAtom atom, boolean isExpired)
         {
             if (atom instanceof RangeTombstone)
             {
@@ -197,6 +201,8 @@ public class RangeTombstone extends Interval<Composite, DeletionTime> implements
                 }
                 ranges.addLast(t);
                 maxOrderingSet.add(t);
+                if (isExpired)
+                    expired.add(t);
             }
             else
             {

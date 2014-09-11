@@ -17,10 +17,16 @@
  */
 package org.apache.cassandra.cql3;
 
-public interface AssignementTestable
+import org.junit.Test;
+
+import static junit.framework.Assert.assertFalse;
+
+public class CreateTableTest extends CQLTester
 {
-    /**
-     * @return whether this object can be assigned to the provided receiver
-     */
-    public boolean isAssignableTo(String keyspace, ColumnSpecification receiver);
+    @Test
+    public void testCQL3PartitionKeyOnlyTable()
+    {
+        createTable("CREATE TABLE %s (id text PRIMARY KEY);");
+        assertFalse(currentTableMetadata().isThriftCompatible());
+    }
 }
